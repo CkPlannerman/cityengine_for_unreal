@@ -68,45 +68,10 @@ public class PRT : ModuleRules
 
 		if (!PrtInstalled || !PrtVersionMatch)
 		{
-
-			string PrtUrl = "https://github.com/Esri/esri-cityengine-sdk/releases/download";
-			string PrtVersion = string.Format("{0}.{1}.{2}", PrtMajor, PrtMinor, PrtBuild);
-
-			string PrtLibName = string.Format("esri_ce_sdk-{0}-{1}", PrtVersion, PrtToolchain);
-			string PrtLibZipFile = PrtLibName + ".zip";
-			string PrtDownloadUrl = Path.Combine(PrtUrl, PrtVersion, PrtLibZipFile);
-
-			try
-			{
-				if (Directory.Exists(LibDir)) Directory.Delete(LibDir, true);
-				if (Directory.Exists(BinDir)) Directory.Delete(BinDir, true);
-				if (Directory.Exists(IncludeDir)) Directory.Delete(IncludeDir, true);
-
-				if (Debug)
-				{
-					if (!PrtInstalled) Console.WriteLine("PRT not found");
-					Console.WriteLine("Updating PRT");
-				}
-
-				if (Debug) System.Console.WriteLine("Downloading " + PrtDownloadUrl + "...");
-				
-				Platform.DownloadFile(PrtDownloadUrl, Path.Combine(ModuleDirectory, PrtLibZipFile));
-
-				if (Debug) System.Console.WriteLine("Extracting " + PrtLibZipFile + "...");
-
-				Platform.ZipExtractor.Unzip(ModuleDirectory, PrtLibZipFile, PrtLibName);
-
-				Directory.CreateDirectory(LibDir);
-				Directory.CreateDirectory(BinDir);
-				Copy(Path.Combine(ModuleDirectory, PrtLibName, "lib"), Path.Combine(ModuleDirectory, LibDir), FilteredExtensionLibraries);
-				Copy(Path.Combine(ModuleDirectory, PrtLibName, "bin"), Path.Combine(ModuleDirectory, BinDir));
-				Copy(Path.Combine(ModuleDirectory, PrtLibName, "include"), Path.Combine(ModuleDirectory, "include"));
-			}
-			finally
-			{
-				Directory.Delete(Path.Combine(ModuleDirectory, PrtLibName), true);
-				File.Delete(Path.Combine(ModuleDirectory, PrtLibZipFile));
-			}
+			// VIL build copy: the release package bundles PRT. Never delete it, download it, or shell out
+			// to cmd/PowerShell at build time (endpoint protection treats that as a download cradle).
+			throw new BuildException(string.Format("PRT {0}.{1}.{2} not found in {3}; re-extract the release package (build-time download disabled).",
+				PrtMajor, PrtMinor, PrtBuild, BinDir));
 		}
 		else if (Debug)
 		{
@@ -291,48 +256,16 @@ public class PRT : ModuleRules
 
 		public override string GetFileVersionInfo(string WorkingDir, string Path)
 		{
-			string GetFileInfoCommand = "/c PowerShell -Command \"(Get-Item \'{0}\').VersionInfo.FileVersion\"";
-			string ExpandedFileInfoCommand = string.Format(GetFileInfoCommand, Path);
-
-			ProcessStartInfo ProcStartInfo = new System.Diagnostics.ProcessStartInfo("cmd", ExpandedFileInfoCommand)
-			{
-				WorkingDirectory = WorkingDir,
-				UseShellExecute = false,
-				CreateNoWindow = true,
-				RedirectStandardOutput = true
-			};
-
-			Process FileVersionProcess = new Process
-			{
-				StartInfo = ProcStartInfo,
-				EnableRaisingEvents = true
-			};
-			FileVersionProcess.Start();
-			
-			string Output = FileVersionProcess.StandardOutput.ReadToEnd();
-			FileVersionProcess.WaitForExit();
-
-			return Output;
+			// VIL: read the version in-process ("3.3.0 Build 11669") instead of spawning cmd -> PowerShell.
+			// UBT's rules compiler doesn't reference System.Diagnostics.FileVersionInfo, so bind it at run time.
+			System.Type FviType = System.Type.GetType("System.Diagnostics.FileVersionInfo, System.Diagnostics.FileVersionInfo", true);
+			object Fvi = FviType.GetMethod("GetVersionInfo", new[] { typeof(string) }).Invoke(null, new object[] { Path });
+			return (string)FviType.GetProperty("FileVersion").GetValue(Fvi) ?? string.Empty;
 		}
-		
+
 		public override void DownloadFile(string Url, string Destination)
 		{
-			string DownloadFileCommand = "/c PowerShell -Command \"Invoke-WebRequest -Uri {0} -OutFile '{1}'\"";
-			string ExpandedDownloadFileCommand = string.Format(DownloadFileCommand, Url, Destination);
-
-			ProcessStartInfo ProcStartInfo = new System.Diagnostics.ProcessStartInfo("cmd", ExpandedDownloadFileCommand)
-			{
-				UseShellExecute = false,
-				CreateNoWindow = true,
-			};
-
-			Process FileVersionProcess = new Process
-			{
-				StartInfo = ProcStartInfo,
-				EnableRaisingEvents = true
-			};
-			FileVersionProcess.Start();
-			FileVersionProcess.WaitForExit();
+			throw new BuildException("Build-time download disabled in this build copy: " + Url);
 		}
 	}
 }

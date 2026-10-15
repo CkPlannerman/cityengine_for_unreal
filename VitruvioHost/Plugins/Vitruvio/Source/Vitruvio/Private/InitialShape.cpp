@@ -182,6 +182,39 @@ FInitialShapePolygon CreateInitialPolygonFromStaticMesh(const UStaticMesh* Stati
 	FInitialShapePolygon InitialShapePolygon = Vitruvio::GetPolygon(MeshVertices, MeshIndices);
 	InitialShapePolygon.FixOrientation();
 
+	// VIL: forward the mesh's UV channels to PRT. Upstream collects them above and drops them, so uvSpace-driven
+	// rules (ESRI.lib streets: u = metres along, v = lanes) collapse to a single lane. SetInitialShapeGeometry expects
+	// one coordinate per face-vertex in face order, each face followed by its holes, so expand the per-vertex sets here.
+	int32 NumUVChannels = 0;
+	if (StaticMesh->GetRenderData() && StaticMesh->GetRenderData()->LODResources.IsValidIndex(0))
+	{
+		NumUVChannels = StaticMesh->GetRenderData()->LODResources[0].VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords();
+	}
+	for (int32 Channel = 0; Channel < NumUVChannels && Channel < MeshTextureCoordinateSets.Num(); ++Channel)
+	{
+		const TArray<FVector2f>& VertexUVs = MeshTextureCoordinateSets[Channel].TextureCoordinates;
+		if (VertexUVs.Num() != MeshVertices.Num())
+		{
+			break;
+		}
+		FTextureCoordinateSet FaceVertexUVs;
+		for (const FInitialShapeFace& Face : InitialShapePolygon.Faces)
+		{
+			for (const int32 Index : Face.Indices)
+			{
+				FaceVertexUVs.TextureCoordinates.Add(VertexUVs[Index]);
+			}
+			for (const FInitialShapeHole& Hole : Face.Holes)
+			{
+				for (const int32 Index : Hole.Indices)
+				{
+					FaceVertexUVs.TextureCoordinates.Add(VertexUVs[Index]);
+				}
+			}
+		}
+		InitialShapePolygon.TextureCoordinateSets.Add(FaceVertexUVs);
+	}
+
 	return InitialShapePolygon;
 }
 
