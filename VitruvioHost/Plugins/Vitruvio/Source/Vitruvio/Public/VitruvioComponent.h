@@ -363,6 +363,7 @@ public:
 	 * @param bGenerateModel Whether a model should be generated after the attribute has been set.
 	 * @param CallbackProxy The optional callback proxy used for generate completed notifications.
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Vitruvio", meta = (AdvancedDisplay = "CallbackProxy"))
 	void SetAttributes(const TMap<FString, FString>& NewAttributes, bool bEvaluateAttributes = true, bool bGenerateModel = true,
 					   UGenerateCompletedCallbackProxy* CallbackProxy = nullptr);
 

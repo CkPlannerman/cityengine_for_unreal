@@ -22,6 +22,14 @@ struct FMaterialReplacementData
 	UPROPERTY(EditAnywhere, Category = "Vitruvio")
 	UMaterialInterface* ReplacementMaterial;
 
+	/**
+	 * Optional vector parameter on the replacement material that receives the CGA colour (the generated material's
+	 * diffuseColor). When set, the replacement is applied as a dynamic instance per component so each model keeps its
+	 * own colour (e.g. a building's wallColour). Leave empty to apply the replacement material as is.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Vitruvio")
+	FName ColorParameterName;
+
 	FMaterialReplacementData() : ReplacementMaterial(nullptr) {}
 
 	bool HasReplacement() const
@@ -31,7 +39,8 @@ struct FMaterialReplacementData
 
 	friend bool operator==(const FMaterialReplacementData& Lhs, const FMaterialReplacementData& Rhs)
 	{
-		return Lhs.MaterialIdentifier == Rhs.MaterialIdentifier && Lhs.ReplacementMaterial == Rhs.ReplacementMaterial;
+		return Lhs.MaterialIdentifier == Rhs.MaterialIdentifier && Lhs.ReplacementMaterial == Rhs.ReplacementMaterial &&
+			   Lhs.ColorParameterName == Rhs.ColorParameterName;
 	}
 
 	friend bool operator!=(const FMaterialReplacementData& Lhs, const FMaterialReplacementData& Rhs)

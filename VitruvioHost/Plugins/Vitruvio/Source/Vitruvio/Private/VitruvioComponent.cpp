@@ -33,6 +33,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "Materials/Material.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/Package.h"
 
 DEFINE_LOG_CATEGORY(LogVitruvioComponent);
@@ -264,21 +265,40 @@ void ApplyMaterialReplacements(UStaticMeshComponent* StaticMeshComponent, const 
 		return;
 	}
 
-	TMap<FString, UMaterialInterface*> ReplacementMaterials;
+	TMap<FString, const FMaterialReplacementData*> ReplacementMaterials;
 	for (const FMaterialReplacementData& ReplacementData : Replacement->Replacements)
 	{
-		ReplacementMaterials.Add(ReplacementData.MaterialIdentifier, ReplacementData.ReplacementMaterial);
+		ReplacementMaterials.Add(ReplacementData.MaterialIdentifier, &ReplacementData);
 	}
 
 	for (int32 MaterialIndex = 0; MaterialIndex < StaticMeshComponent->GetNumMaterials(); ++MaterialIndex)
 	{
 		const UMaterialInterface* SourceMaterial = StaticMeshComponent->GetMaterial(MaterialIndex);
-		FString MaterialIdentifier = MaterialIdentifiers[SourceMaterial];
-
-		if (UMaterialInterface** Result = ReplacementMaterials.Find(MaterialIdentifier))
+		const FString* MaterialIdentifier = MaterialIdentifiers.Find(SourceMaterial);
+		if (!MaterialIdentifier)
 		{
-			UMaterialInterface* ReplacementMaterial = *Result;
-			StaticMeshComponent->SetMaterial(MaterialIndex, ReplacementMaterial);
+			continue;
+		}
+
+		const FMaterialReplacementData* const* Result = ReplacementMaterials.Find(*MaterialIdentifier);
+		if (!Result || !(*Result)->ReplacementMaterial)
+		{
+			continue;
+		}
+
+		const FMaterialReplacementData& Data = **Result;
+		FLinearColor CgaColor;
+		if (!Data.ColorParameterName.IsNone() &&
+			SourceMaterial->GetVectorParameterValue(FHashedMaterialParameterInfo(TEXT("diffuseColor")), CgaColor))
+		{
+			// One dynamic instance per component and slot: carries this model's CGA colour into the replacement.
+			UMaterialInstanceDynamic* Tinted = UMaterialInstanceDynamic::Create(Data.ReplacementMaterial, StaticMeshComponent);
+			Tinted->SetVectorParameterValue(Data.ColorParameterName, CgaColor);
+			StaticMeshComponent->SetMaterial(MaterialIndex, Tinted);
+		}
+		else
+		{
+			StaticMeshComponent->SetMaterial(MaterialIndex, Data.ReplacementMaterial);
 		}
 	}
 }
