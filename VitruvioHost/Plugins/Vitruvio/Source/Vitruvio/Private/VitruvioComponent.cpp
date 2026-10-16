@@ -714,8 +714,13 @@ void UVitruvioComponent::SetAttributes(const TMap<FString, FString>& NewAttribut
 				ArrayValue = Value.LeftChop(1).RightChop(1);
 			}
 
+			// Keep empty items: parallel arrays (one entry per opening, per wall) must keep their length and order,
+			// so "a,,c" is three items. An empty string is an empty array, not one empty item.
 			TArray<FString> StringValues;
-			ArrayValue.ParseIntoArray(StringValues, TEXT(","));
+			if (!ArrayValue.IsEmpty())
+			{
+				ArrayValue.ParseIntoArray(StringValues, TEXT(","), false);
+			}
 
 			if (Cast<UFloatArrayAttribute>(Attribute))
 			{

@@ -357,6 +357,7 @@ public:
 	 * Regenerates the model if bGenerateModel is set to true. The type of the attribute will be deduced from its
 	 * string representation: <br> "1.0" for the float 1.0 <br> "hello" for the string "hello" and <br> "true" for the bool true <br>
 	 * array values are separated via a comma eg: "1.3,4.5,0" for a float array with the values 1.3, 4.5 and 0.
+	 * Empty items are kept ("a,,c" is three strings) and "" is an empty array; string items cannot contain commas.
 	 *
 	 * @param NewAttributes The attributes to be set.
 	 * @param bEvaluateAttributes Whether the attributes should be re-evaluated after the initial shape has been set.
